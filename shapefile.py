@@ -142,7 +142,7 @@ else:
             return v
         elif v is None:
             # Since we're dealing with text, interpret None as ""
-            return u""
+            return ""
         else:
             # Force string representation.
             return bytes(v).decode(encoding, encodingErrors)
@@ -261,8 +261,7 @@ def ring_sample(coords, ccw=False):
     triplet = []
     def itercoords():
         # iterate full closed ring
-        for p in coords:
-            yield p
+        yield from coords
         # finally, yield the second coordinate to the end to allow checking the last triplet
         yield coords[1]
         
@@ -298,7 +297,7 @@ def ring_sample(coords, ccw=False):
 def ring_contains_ring(coords1, coords2):
     '''Returns True if all vertexes in coords2 are fully inside coords1.
     '''
-    return all((ring_contains_point(coords1, p2) for p2 in coords2))
+    return all(ring_contains_point(coords1, p2) for p2 in coords2)
 
 def organize_polygon_rings(rings, return_errors=None):
     '''Organize a list of coordinate rings into one or more polygons with holes.
@@ -347,7 +346,7 @@ def organize_polygon_rings(rings, return_errors=None):
             return polys
         
         # first determine each hole's candidate exteriors based on simple bbox contains test
-        hole_exteriors = dict([(hole_i,[]) for hole_i in xrange(len(holes))])
+        hole_exteriors = {hole_i:[] for hole_i in xrange(len(holes))}
         exterior_bboxes = [ring_bbox(ring) for ring in exteriors]
         for hole_i in hole_exteriors.keys():
             hole_bbox = ring_bbox(holes[hole_i])
@@ -427,7 +426,7 @@ def organize_polygon_rings(rings, return_errors=None):
         polys = [[ext] for ext in exteriors]
         return polys
 
-class Shape(object):
+class Shape:
     def __init__(self, shapeType=NULL, points=None, parts=None, partTypes=None, oid=None):
         """Stores the geometry of the different shape types
         specified in the Shapefile spec. Shape types are
@@ -538,7 +537,7 @@ class Shape(object):
                 # if VERBOSE is True, issue detailed warning about any shape errors
                 # encountered during the Shapefile to GeoJSON conversion
                 if VERBOSE and self._errors: 
-                    header = 'Possible issue encountered when converting Shape #{} to GeoJSON: '.format(self.oid)
+                    header = f'Possible issue encountered when converting Shape #{self.oid} to GeoJSON: '
                     orphans = self._errors.get('polygon_orphaned_holes', None)
                     if orphans:
                         msg = header + 'Shapefile format requires that all polygon interior holes be contained by an exterior ring, \
@@ -660,7 +659,7 @@ still included but were encoded as GeoJSON exterior rings instead of holes.'
         return SHAPETYPE_LOOKUP[self.shapeType]
 
     def __repr__(self):
-        return 'Shape #{}: {}'.format(self.__oid, self.shapeTypeName)
+        return f'Shape #{self.__oid}: {self.shapeTypeName}'
 
 class _Record(list):
     """
@@ -708,9 +707,9 @@ class _Record(list):
             index = self.__field_positions[item]
             return list.__getitem__(self, index)
         except KeyError:
-            raise AttributeError('{} is not a field name'.format(item))
+            raise AttributeError(f'{item} is not a field name')
         except IndexError:
-            raise IndexError('{} found as a field but not enough values available.'.format(item))
+            raise IndexError(f'{item} found as a field but not enough values available.')
 
     def __setattr__(self, key, value):
         """
@@ -726,7 +725,7 @@ class _Record(list):
             index = self.__field_positions[key]
             return list.__setitem__(self, index, value)
         except KeyError:
-            raise AttributeError('{} is not a field name'.format(key))
+            raise AttributeError(f'{key} is not a field name')
 
     def __getitem__(self, item):
         """
@@ -747,7 +746,7 @@ class _Record(list):
         if index is not None:
             return list.__getitem__(self, index)
         else:
-            raise IndexError('"{}" is not a field name and not an int'.format(item))
+            raise IndexError(f'"{item}" is not a field name and not an int')
 
     def __setitem__(self, key, value):
         """
@@ -765,7 +764,7 @@ class _Record(list):
             if index is not None:
                 return list.__setitem__(self, index, value)
             else:
-                raise IndexError('{} is not a field name and not an int'.format(key))
+                raise IndexError(f'{key} is not a field name and not an int')
 
     @property
     def oid(self):
@@ -777,15 +776,15 @@ class _Record(list):
         Returns this Record as a dictionary using the field names as keys
         :return: dict
         """
-        dct = dict((f, self[i]) for f, i in self.__field_positions.items())
+        dct = {f: self[i] for f, i in self.__field_positions.items()}
         if date_strings:
             for k,v in dct.items():
                 if isinstance(v, date):
-                    dct[k] = '{:04d}{:02d}{:02d}'.format(v.year, v.month, v.day)
+                    dct[k] = f'{v.year:04d}{v.month:02d}{v.day:02d}'
         return dct
 
     def __repr__(self):
-        return 'Record #{}: {}'.format(self.__oid, list(self))
+        return f'Record #{self.__oid}: {list(self)}'
 
     def __dir__(self):
         """
@@ -798,7 +797,7 @@ class _Record(list):
         fnames = list(self.__field_positions.keys()) # plus field names (random order if Python version < 3.6)
         return default + fnames 
         
-class ShapeRecord(object):
+class ShapeRecord:
     """A ShapeRecord object containing a shape along with its attributes.
     Provides the GeoJSON __geo_interface__ to return a Feature dictionary."""
     def __init__(self, shape=None, record=None):
@@ -818,7 +817,7 @@ class Shapes(list):
     to return a GeometryCollection dictionary."""
 
     def __repr__(self):
-        return 'Shapes: {}'.format(list(self))
+        return f'Shapes: {list(self)}'
 
     @property
     def __geo_interface__(self):
@@ -835,7 +834,7 @@ class ShapeRecords(list):
     to return a FeatureCollection dictionary."""
 
     def __repr__(self):
-        return 'ShapeRecords: {}'.format(list(self))
+        return f'ShapeRecords: {list(self)}'
 
     @property
     def __geo_interface__(self):
@@ -883,7 +882,7 @@ class ShapefileException(Exception):
 #             msg = '\n'.join(messages)
 #             logging.warning(msg)
 
-class Reader(object):
+class Reader:
     """Reads the three files of a shapefile as a unit or
     separately.  If one of the three files (.shp, .shx,
     .dbf) is missing no exception is thrown until you try
@@ -1019,8 +1018,7 @@ class Reader(object):
 
     def __iter__(self):
         """Iterates through the shapes/records in the shapefile."""
-        for shaperec in self.iterShapeRecords():
-            yield shaperec
+        yield from self.iterShapeRecords()
 
     @property
     def __geo_interface__(self):
@@ -1044,7 +1042,7 @@ class Reader(object):
             self.load_shx(shapeName)
             self.load_dbf(shapeName)
             if not (self.shp or self.dbf):
-                raise ShapefileException("Unable to open %s.dbf or %s.shp." % (shapeName, shapeName))
+                raise ShapefileException(f"Unable to open {shapeName}.dbf or {shapeName}.shp.")
         if self.shp:
             self.__shpHeader()
         if self.dbf:
@@ -1056,11 +1054,11 @@ class Reader(object):
         """
         shp_ext = 'shp'
         try:
-            self.shp = open("%s.%s" % (shapefile_name, shp_ext), "rb")
-        except IOError:
+            self.shp = open(f"{shapefile_name}.{shp_ext}", "rb")
+        except OSError:
             try:
-                self.shp = open("%s.%s" % (shapefile_name, shp_ext.upper()), "rb")
-            except IOError:
+                self.shp = open(f"{shapefile_name}.{shp_ext.upper()}", "rb")
+            except OSError:
                 pass
 
     def load_shx(self, shapefile_name):
@@ -1069,11 +1067,11 @@ class Reader(object):
         """
         shx_ext = 'shx'
         try:
-            self.shx = open("%s.%s" % (shapefile_name, shx_ext), "rb")
-        except IOError:
+            self.shx = open(f"{shapefile_name}.{shx_ext}", "rb")
+        except OSError:
             try:
-                self.shx = open("%s.%s" % (shapefile_name, shx_ext.upper()), "rb")
-            except IOError:
+                self.shx = open(f"{shapefile_name}.{shx_ext.upper()}", "rb")
+            except OSError:
                 pass
 
     def load_dbf(self, shapefile_name):
@@ -1082,11 +1080,11 @@ class Reader(object):
         """
         dbf_ext = 'dbf'
         try:
-            self.dbf = open("%s.%s" % (shapefile_name, dbf_ext), "rb")
-        except IOError:
+            self.dbf = open(f"{shapefile_name}.{dbf_ext}", "rb")
+        except OSError:
             try:
-                self.dbf = open("%s.%s" % (shapefile_name, dbf_ext.upper()), "rb")
-            except IOError:
+                self.dbf = open(f"{shapefile_name}.{dbf_ext.upper()}", "rb")
+            except OSError:
                 pass
 
     def __del__(self):
@@ -1097,7 +1095,7 @@ class Reader(object):
             if hasattr(attribute, 'close'):
                 try:
                     attribute.close()
-                except IOError:
+                except OSError:
                     pass
 
     def __getFileObj(self, f):
@@ -1314,7 +1312,7 @@ class Reader(object):
         self.__recStruct = Struct(fmt)
 
         # Store the field positions
-        self.__fieldposition_lookup = dict((f[0], i) for i, f in enumerate(self.fields[1:]))
+        self.__fieldposition_lookup = {f[0]: i for i, f in enumerate(self.fields[1:])}
 
     def __recordFmt(self):
         """Calculates the format and size of a .dbf record."""
@@ -1453,7 +1451,7 @@ class Reader(object):
             yield ShapeRecord(shape=shape, record=record)
 
 
-class Writer(object):
+class Writer:
     """Provides write support for ESRI Shapefiles."""
     def __init__(self, target=None, shapeType=None, autoBalance=False, **kwargs):
         self.target = target
@@ -1463,7 +1461,7 @@ class Writer(object):
         self.shp = self.shx = self.dbf = None
         if target:
             if not is_string(target):
-                raise Exception('The target filepath {} must be of type str/unicode, not {}.'.format(repr(target), type(target)) )
+                raise Exception(f'The target filepath {repr(target)} must be of type str/unicode, not {type(target)}.' )
             self.shp = self.__getFileObj(os.path.splitext(target)[0] + '.shp')
             self.shx = self.__getFileObj(os.path.splitext(target)[0] + '.shx')
             self.dbf = self.__getFileObj(os.path.splitext(target)[0] + '.dbf')
@@ -1546,7 +1544,7 @@ class Writer(object):
                 if hasattr(attribute, 'close'):
                     try:
                         attribute.close()
-                    except IOError:
+                    except OSError:
                         pass
 
     def __getFileObj(self, f):
@@ -1734,7 +1732,7 @@ class Writer(object):
         if headerLength >= 65535:
             raise ShapefileException(
                     "Shapefile dbf header length exceeds maximum length.")
-        recordLength = sum([int(field[2]) for field in fields]) + 1
+        recordLength = sum(int(field[2]) for field in fields) + 1
         header = pack('<BBBBLHH20x', version, year, month, day, numRecs,
                 headerLength, recordLength)
         f.write(header)
@@ -1780,7 +1778,7 @@ class Writer(object):
         if self.shapeType is None and s.shapeType != NULL:
             self.shapeType = s.shapeType
         if s.shapeType != NULL and s.shapeType != self.shapeType:
-            raise Exception("The shape's type (%s) must match the type of the shapefile (%s)." % (s.shapeType, self.shapeType))
+            raise Exception(f"The shape's type ({s.shapeType}) must match the type of the shapefile ({self.shapeType}).")
         f.write(pack("<i", s.shapeType))
 
         # For point just update bbox of the whole shapefile
@@ -1841,7 +1839,7 @@ class Writer(object):
             try:
                 if hasattr(s,"m"): 
                     # if m values are stored in attribute
-                    f.write(pack("<%sd" % len(s.m), *[m if m is not None else NODATA for m in s.m]))
+                    f.write(pack("<%sd" % len(s.m), *(m if m is not None else NODATA for m in s.m)))
                 else:
                     # if m values are stored as 3rd/4th dimension
                     # 0-index position of m value is 3 if z type (x,y,z,m), or 2 if m type (x,y,m)
@@ -1989,7 +1987,7 @@ class Writer(object):
             elif fieldType == "D":
                 # date: 8 bytes - date stored as a string in the format YYYYMMDD.
                 if isinstance(value, date):
-                    value = '{:04d}{:02d}{:02d}'.format(value.year, value.month, value.day)
+                    value = f'{value.year:04d}{value.month:02d}{value.day:02d}'
                 elif isinstance(value, list) and len(value) == 3:
                     value = '{:04d}{:02d}{:02d}'.format(*value)
                 elif value in MISSING:
